@@ -1,0 +1,57 @@
+version: "2.1"
+
+networks:
+  db:
+    driver: bridge
+
+services:
+  calendar:
+    container_name: calendar_server
+    restart: on-failure
+    ports:
+      - "8888:8080"
+      - "8889:8081"
+    build:
+      context: ./
+      dockerfile: ./cmd/calendar/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./logs:/var/log
+    environment:
+      - GRPC_PORT=8081
+      - GRPC_HOST=0.0.0.0
+      - HTTP_PORT=8080
+      - PGSQL_DSN=host=postgres port=5432 user=user password=secret dbname=calendar_tests sslmode=disable
+    networks:
+      - db
+
+  flyway:
+    image: flyway/flyway:7.13.0
+    container_name: calendar_flyway
+    command: -url=jdbc:postgresql://postgres:5432/calendar_tests -user=user -password=secret -locations=filesystem:/flyway/sql -connectRetries=60 migrate
+    volumes:
+      - ${PWD}/migrations:/flyway/sql
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - db
+
+  postgres:
+    image: postgres:12.4
+    container_name: calendar_pgsql
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=secret
+      - POSTGRES_DB=calendar_tests
+    healthcheck:
+      test: [ "CMD", "pg_isready", "-q", "-U", "user", "-d", "calendar_tests" ]
+      interval: 1s
+      timeout: 1s
+      retries: 5
+    ports:
+      - "5432:5432"
+    networks:
+      - db

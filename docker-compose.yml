@@ -1,0 +1,108 @@
+version: "2.1"
+
+networks:
+  db:
+    driver: bridge
+  rbmq:
+    driver: bridge
+
+services:
+  calendar_api:
+    restart: on-failure
+    ports:
+      - "8888:8080"
+      - "8889:8081"
+    build:
+      context: ./
+      dockerfile: ./cmd/calendar/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./logs:/var/log
+    environment:
+      - GRPC_PORT=8081
+      - GRPC_HOST=0.0.0.0
+      - HTTP_PORT=8080
+      - PGSQL_DSN=host=postgres port=5432 user=user password=secret dbname=calendar sslmode=disable
+    networks:
+      - db
+
+  scheduler:
+    restart: on-failure
+    build:
+      context: ./
+      dockerfile: ./cmd/scheduler/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - ./logs:/var/log
+    environment:
+      - PGSQL_DSN=host=postgres port=5432 user=user password=secret dbname=calendar sslmode=disable
+      - RBMQ_DSN=amqp://testuser:testpwd@rabbitmq:5672/
+    networks:
+      - db
+      - rbmq
+
+  sender:
+    restart: on-failure
+    build:
+      context: ./
+      dockerfile: ./cmd/sender/Dockerfile
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - ./logs:/var/log
+    environment:
+      - RBMQ_DSN=amqp://testuser:testpwd@rabbitmq:5672/
+    networks:
+      - rbmq
+
+  flyway:
+    image: flyway/flyway:7.13.0
+    command: -url=jdbc:postgresql://postgres:5432/calendar -user=user -password=secret -locations=filesystem:/flyway/sql -connectRetries=60 migrate
+    volumes:
+      - ${PWD}/migrations:/flyway/sql
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - db
+
+  postgres:
+    image: postgres:12.4
+    container_name: calendar_pgsql
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=secret
+      - POSTGRES_DB=calendar
+    healthcheck:
+      test: [ "CMD", "pg_isready", "-q", "-U", "user", "-d", "calendar" ]
+      interval: 5s
+      timeout: 1s
+      retries: 5
+    ports:
+      - "5432:5432"
+    networks:
+      - db
+
+  rabbitmq:
+    container_name: calendar_rbmq
+    environment:
+      - RABBITMQ_DEFAULT_USER=testuser
+      - RABBITMQ_DEFAULT_PASS=testpwd
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 10s
+      timeout: 10s
+      retries: 5
+    ports:
+      - '5672:5672'
+      - '15672:15672'
+    networks:
+      - rbmq
+    image: 'rabbitmq:3-management'

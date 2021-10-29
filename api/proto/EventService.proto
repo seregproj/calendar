@@ -1,0 +1,61 @@
+syntax = "proto3";
+
+package event;
+
+option go_package = "api/proto";
+
+import "google/protobuf/timestamp.proto";
+import "validate/validate.proto";
+import "google/api/annotations.proto";
+
+service EventService {
+  rpc CreateEvent(Event) returns (CreateEventResponse) {
+    option (google.api.http) = { post: "/api/v1/event", body: "*" };
+  }
+
+  rpc UpdateEvent(UpdateEventRequest) returns (UpdateEventResponse) {
+    option (google.api.http) = { put: "/api/v1/event/{uuid}", body: "*" };
+  }
+
+  rpc DeleteEvent(DeleteEventRequest) returns (DeleteEventResponse) {
+    option (google.api.http) = { delete: "/api/v1/event/{uuid}" };
+  }
+
+  rpc GetEventsByDay(GetEventsByDayRequest) returns (Events) {
+    option (google.api.http) = { get: "/api/v1/events/day/{day}/limit/{limit}/offset/{offset}"};
+  }
+}
+
+message Event {
+  string title = 1 [(validate.rules).string.min_len = 1];
+  string description = 2 [(validate.rules).string.min_len = 1];
+  google.protobuf.Timestamp date_start = 3 [(validate.rules).timestamp.gt_now = true];
+  google.protobuf.Timestamp date_finish = 4 [(validate.rules).timestamp.gt_now = true];
+}
+
+message Events {
+  repeated Event items = 1;
+}
+
+message CreateEventResponse {
+  string uuid = 1;
+}
+
+message UpdateEventRequest {
+  string uuid = 1 [(validate.rules).string.len = 36];
+  Event event = 2;
+}
+
+message UpdateEventResponse {}
+
+message DeleteEventRequest {
+  string uuid = 1 [(validate.rules).string.len = 36];
+}
+
+message DeleteEventResponse {}
+
+message GetEventsByDayRequest {
+  string day = 1 [(validate.rules).string.len = 10];
+  int64 limit = 2;
+  int64 offset = 3;
+}

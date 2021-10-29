@@ -1,0 +1,12 @@
+logger:
+  level: "INFO"
+
+server:
+  GRPC:
+    host: "0.0.0.0"
+    port: "8889"
+
+storage:
+  type: "pgsql"
+  PGSQL:
+    DSN: "host=0.0.0.0 port=5432 user=user password=secret dbname=calendar sslmode=disable"

@@ -1,0 +1,17 @@
+logger:
+  level: "INFO"
+
+storage:
+  type: "pgsql"
+  PGSQL:
+    DSN: "host=0.0.0.0 port=5432 user=user password=secret dbname=calendar sslmode=disable"
+
+messagebroker:
+  type: "rabbitmq"
+  RBMQ:
+    dsn: "amqp://testuser:testpwd@localhost:5672/"
+    queueEmail: "notifications.email"
+
+app:
+  notifications:
+    limit: 10

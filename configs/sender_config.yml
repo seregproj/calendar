@@ -1,0 +1,8 @@
+logger:
+  level: "INFO"
+
+messagebroker:
+  type: "rabbitmq"
+  RBMQ:
+    dsn: "amqp://testuser:testpwd@localhost:5672/"
+    queueEmail: "notifications.email"
